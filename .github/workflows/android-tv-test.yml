@@ -1,5 +1,11 @@
 name: Authorized Android TV and mobile test build
 on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/android-tv-test.yml'
+      - 'scripts/**'
+      - 'test-signing/**'
   workflow_dispatch:
     inputs:
       domain:
@@ -29,7 +35,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      TARGET_DOMAIN: ${{ inputs.domain }}
+      TARGET_DOMAIN: ${{ inputs.domain || 'emby.nasa.us.ci' }}
       CLIENT: ${{ matrix.client }}
       TV_VERSION: ${{ inputs.version }}
       MOBILE_VERSION: ${{ inputs.mobile_version }}
