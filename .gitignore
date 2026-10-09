@@ -1,0 +1,12 @@
+# Incomplete local Worker: deliberately excluded from this repository for now.
+/cf-worker/
+# Generated files and local build state
+__pycache__/
+*.py[cod]
+/original.apk
+/rebuilt.apk
+/aligned.apk
+/decoded/
+/out/
+/emby-test.Caddyfile
+.dev.vars*

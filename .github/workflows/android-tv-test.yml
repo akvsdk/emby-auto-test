@@ -1,0 +1,96 @@
+name: Authorized Android TV and mobile test build
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: Test hostname only (no https or path)
+        required: true
+        default: emby.nasa.us.ci
+        type: string
+      version:
+        description: TV APK versionName; blank/latest uses current official TV file
+        required: false
+        default: latest
+        type: string
+      mobile_version:
+        description: Mobile APK versionName; blank/latest uses current official ARM64 file
+        required: false
+        default: latest
+        type: string
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Build ${{ matrix.client }} test APK
+    strategy:
+      fail-fast: false
+      matrix:
+        client: [tv, mobile]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TARGET_DOMAIN: ${{ inputs.domain }}
+      CLIENT: ${{ matrix.client }}
+      TV_VERSION: ${{ inputs.version }}
+      MOBILE_VERSION: ${{ inputs.mobile_version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: android-actions/setup-android@v3
+      - name: Install pinned tooling and preflight checks
+        run: bash scripts/setup_android_tools.sh
+      - name: Run script unit tests
+        run: python3 -m unittest discover -s scripts -p test_prepare_tv.py -v
+      - name: Resolve, inspect and rebuild official client APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$CLIENT" = tv ]; then
+            export APK_VERSION="$TV_VERSION"
+          else
+            export APK_VERSION="$MOBILE_VERSION"
+          fi
+          python3 scripts/prepare_tv.py
+      - name: Align and sign with fixed PUBLIC TEST key
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$GITHUB_WORKSPACE/test-signing/public-test.p12"
+          export TEST_KEY_PASSWORD='public-test-only'
+          test -f "$key"
+          keytool -list -keystore "$key" -storetype PKCS12 -storepass:env TEST_KEY_PASSWORD -alias emby-public-test
+          zipalign -P 16 -f 4 rebuilt.apk aligned.apk
+          apksigner sign --ks "$key" --ks-key-alias emby-public-test --ks-pass env:TEST_KEY_PASSWORD --key-pass env:TEST_KEY_PASSWORD --out "out/emby-${CLIENT}-test.apk" aligned.apk
+          apksigner verify --verbose --print-certs "out/emby-${CLIENT}-test.apk" > out/signature.txt
+          python3 scripts/verify_test_certificate.py out/signature.txt
+          zipalign -c -P 16 -v 4 "out/emby-${CLIENT}-test.apk" > out/alignment.txt
+          python3 - <<'PY'
+          import hashlib,json,pathlib,os
+          p=pathlib.Path('out/report.json'); data=json.loads(p.read_text())
+          data['test_apk_sha256']=hashlib.sha256((pathlib.Path('out') / ('emby-'+os.environ['CLIENT']+'-test.apk')).read_bytes()).hexdigest()
+          data['signing']='fixed PUBLIC TEST key; not trusted; incompatible with official signature'
+          data['expected_certificate_sha256']='17:B0:32:99:24:AB:FA:0F:D3:57:EE:B1:A3:35:6E:DE:2F:96:CC:09:F0:AA:B2:FC:1A:51:73:69:50:18:C4:F9'
+          p.write_text(json.dumps(data,indent=2)+'\n')
+          PY
+      - name: Upload test APK and verification reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: emby-${{ matrix.client }}-test-${{ github.run_id }}
+          path: out/
+          retention-days: 3
+          if-no-files-found: error
+      - name: Preserve environment report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: environment-${{ matrix.client }}-failure-${{ github.run_id }}
+          path: out/environment.txt
+          retention-days: 3
+          if-no-files-found: ignore
