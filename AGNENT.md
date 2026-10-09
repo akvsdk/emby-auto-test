@@ -10,7 +10,7 @@
 
 - Caddy 已部署于 5.253.17.117，SSH root、端口 5522；测试域名 emby.nasa.us.ci。
 - 三个接口 GET/POST/OPTIONS 共 9 项响应正文对照通过，兜底 404 和原 Grafana 站点检查通过。
-- TV、手机 ARM64 Actions 文件及固定签名已写好；尚未运行 GitHub 完整构建，也未验证设备端效果。
+- TV、手机 ARM64 Actions 与固定签名已在运行 37896378202 完成完整构建，两项成功；设备端效果未验证。
 - 访问隔离尚未配置，当前测试接口公开；后续必须安排隔离与撤销。没有令牌或访问来源限制。
 - 已初始化 Git，并配置远程 akvsdk/emby-auto-test；实际构建状态以 Actions 运行记录为准。
 - cf-worker/ 是未完成的本地备选实现，本次不提交，不属于当前 Caddy 主链条。
@@ -110,7 +110,7 @@ curl -i https://emby.nasa.us.ci/unknown
 
 把本目录放入有 Actions 权限的测试仓库并推送默认分支，必须包含 .github/、scripts/、test-signing/，不是只上传 workflow。不要提交下载的 APK、decoded/、out/、SDK 或生产凭据。公开密钥许可不等于允许公开测试 APK；按授权约定管理仓库和 artifact 访问权限。
 
-进入 Actions → Authorized Android TV and mobile test build → Run workflow：
+master 分支上的 workflow、scripts/、test-signing/ 修改会自动构建两项 latest。自定义参数时进入 Actions → Authorized Android TV and mobile test build → Run workflow：
 
 | 输入 | 默认 | 规则 |
 |---|---|---|
@@ -136,7 +136,7 @@ Ubuntu 24.04；Temurin Java 17；Python 3.12；setup-android 初始化 SDK；Bui
 66cf4524a4a45a7f56567d08b2c9b6ec237bcdd78cee69fd4a59c8a0243aeafa
 ~~~
 
-工具脚本检查 java/keytool/python3/sdkmanager/openssl/curl 和 aapt/zipalign/apksigner。GitHub token 通过 github.token 供 API 查询，无需新增下载凭据。OpenSSL/curl 仍来自 runner 系统环境；Actions 大版本引用、JDK/Python 小版本并未全部锁定，因此不是完全位级可复现环境。
+setup-android 显式只安装 platform-tools，避免默认旧 tools 包无法获取。工具脚本检查 java/keytool/python3/sdkmanager/openssl/curl 和 aapt/zipalign/apksigner。GitHub token 通过 github.token 供 API 查询，无需新增下载凭据。OpenSSL/curl 仍来自 runner 系统环境；Actions 大版本引用、JDK/Python 小版本并未全部锁定，因此不是完全位级可复现环境。
 
 ### 构建行为与产物
 

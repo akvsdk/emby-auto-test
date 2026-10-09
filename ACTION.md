@@ -16,6 +16,8 @@
 
 TV 与手机共用 test-signing/public-test.p12 中的固定公开测试密钥，密码和私钥均允许公开；不得用于生产或信任判定。签名后检查证书 SHA-256。测试 APK 不能覆盖官方安装；同包名、相同测试签名且版本条件满足时可跨运行更新，安装前应备份测试设备数据。产物保存 3 天，包含 APK、来源/版本/域名/文件修改报告、哈希、签名及对齐验证结果，不发布公共 Release。
 
-当前仅做了本地脚本单元测试，尚未在 GitHub runner 上构建。通过 setup-android 显式初始化 SDK；Java 17、Python 3.12 显式配置；apktool 固定 2.12.1 并校验硬编码 SHA-256，SDK build-tools 固定 35.0.0。环境预检输出保存在 environment.txt。涉及资源/反篡改兼容问题时应停止并检查，不跳过失败。
+2026-10-09 已在 GitHub runner 完成 TV 与手机两项完整构建：运行 37896378202，两项均成功，包含签名指纹和对齐验证；设备安装和客户端功能尚未验证。通过 setup-android 显式初始化 SDK；Java 17、Python 3.12 显式配置；apktool 固定 2.12.1 并校验硬编码 SHA-256，SDK build-tools 固定 35.0.0。环境预检输出保存在 environment.txt。涉及资源/反篡改兼容问题时应停止并检查，不跳过失败。
 
 仅用于获准的隔离测试；上线前完成测试接口访问隔离。本 workflow 不修改服务器或 Cloudflare 配置。
+
+构建文件（workflow、scripts、test-signing）在 master 分支变更时会自动构建两项 latest；也可手动配置参数运行。首次 SDK 初始化因默认 tools 包已移除而失败，已通过 setup-android 显式 packages: platform-tools 修复。
