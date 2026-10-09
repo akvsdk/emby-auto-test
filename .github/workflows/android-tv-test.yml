@@ -56,7 +56,7 @@ jobs:
       - name: Install pinned tooling and preflight checks
         run: bash scripts/setup_android_tools.sh
       - name: Run script unit tests
-        run: python3 -m unittest discover -s scripts -p test_prepare_tv.py -v
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
       - name: Resolve, inspect and rebuild official client APK
         shell: bash
         run: |
@@ -103,3 +103,36 @@ jobs:
           path: out/environment.txt
           retention-days: 3
           if-no-files-found: ignore
+
+  release:
+    name: Publish APK Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download both successful build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: emby-*-test-${{ github.run_id }}
+          path: artifacts
+          merge-multiple: false
+      - name: Verify and prepare release attachments
+        run: python3 scripts/prepare_release.py --source artifacts --output release-assets --run-id "${{ github.run_id }}"
+      - name: Publish full Release and mark Latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          assets=(release-assets/*.apk release-assets/*.json release-assets/*.txt)
+          # Upload all attachments as a draft, then publish as a regular Release.
+          gh release create "$tag" "${assets[@]}" --target "$GITHUB_SHA" --title "Android TV + Mobile build $GITHUB_RUN_ID" --notes-file release-assets/release-notes.md --draft
+          gh release edit "$tag" --draft=false --latest

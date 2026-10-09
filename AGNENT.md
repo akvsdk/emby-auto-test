@@ -148,7 +148,7 @@ setup-android 显式只安装 platform-tools，避免默认旧 tools 包无法�
 
 - emby-tv-test-<run_id> → emby-tv-test.apk。
 - emby-mobile-test-<run_id> → emby-mobile-test.apk。
-- 各包附 report.json、signature.txt、alignment.txt、environment.txt；保留 3 天，不创建公开 Release。
+- 各包附 report.json、signature.txt、alignment.txt、environment.txt；保留 3 天，两项均成功后另行创建正式公开 Release。
 - 环境报告已经生成但后续失败时，上传对应 environment-<client>-failure-<run_id>。
 
 report.json 记录客户端、实际版本、请求版本、来源 SHA/URL、ABI、域名、改动文件/次数、原始及测试 APK SHA-256 与预期证书指纹。latest 会变化；复现时保存报告和原始文件哈希，若版本超出查询窗口则需另行扩展来源解析。
@@ -218,3 +218,7 @@ zipalign -c -P 16 -v 4 "out/emby-$CLIENT-test.apk"
 服务器回滚优先删除本次新增 import，保留后续其他站点修改；验证后 reload。只有确认没有后续配置变化时，才可恢复 /etc/caddy/Caddyfile.before-emby，然后 validate/reload。不要直接整份覆盖新配置。配置文件即使保留，只要取消 import 就不再作为主配置加载。
 
 测试结束移除域名路由/入口与临时访问规则，按授权要求清理设备和产物；公开测试私钥无法通过修改密码变成秘密。本文不改变已有服务器配置，也不替代最终访问隔离方案。
+
+## Release 发布
+
+两项构建都成功后，release job 下载各自 artifact，复核 APK SHA-256，先上传完整附件至草稿，再发布正式 Release 并标记 Latest。标签为 build-<run_id>-<run_attempt>，包含两份 APK、分别命名的报告和 SHA256SUMS.txt。首页 README 使用 releases/latest 下载入口。不增加 debuggable 检查；仍使用固定公开测试签名，不是官方签名。公开仓库的 Release 附件公开可下载。
